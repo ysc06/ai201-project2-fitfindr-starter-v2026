@@ -127,6 +127,16 @@ Pair the Y2K Baby Tee — Butterfly Print with the Wide-leg khaki trousers, styl
   Fit card: Just scored this Y2K Baby Tee — Butterfly Print on depop for $18.00 and I am so obsessed with the white, pink, and purple colorway! I'm totally styling it for a Y2K casual streetwear vibe layered under a black cropped zip hoodie with baggy dark wash jeans and chunky white sneakers. Such a nostalgic little find.
 ```
 
+**The same command on a query that matches nothing** — it stops after the search, with no outfit and no fit card:
+
+```
+$ python app.py ask 'designer ballgown size XXS under $5'
+
+  No listings matched. Try to raise your max price above $5.00, or drop the size filter (xxs), or use broader keywords than "designer ballgown".
+
+0 model calls this session
+```
+
 **The three tools, tested one at a time**
 
 `search_listings` — a match, then nothing:
