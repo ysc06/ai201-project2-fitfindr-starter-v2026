@@ -56,27 +56,27 @@
      The empty case isn't optional either — it's the thing your loop branches
      on, and if you don't decide it here you'll discover it as a crash in
      Milestone 5. -->
-
+# Function contract 
 ### `search_listings`
 
-- **What it does:**
-- **Inputs:** <!-- name and type each: `max_price` (float), not "a price" -->
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Filters listings.json by price ceiling and size (when the user gives them), scores the remaining items by keyword overlap with the description, and returns them highest score first.
+- **Inputs:** `description` (str) — keywords like "vintage graphic tee"; `size` (str | None) — case-insensitive, matches when it equals one of the listing's size tokens split on "/" and spaces (so "M" matches "S/M" but not "XL", and "S" doesn't match "US 9"); None skips size filtering; `max_price` (float | None) — inclusive ceiling, None skips price filtering.
+- **Returns:** A list of up to `config.SEARCH_RESULT_LIMIT` (currently 10) listing dicts, best match first, each with id, title, description, category, style_tags (list), size, condition, price (float), colors (list), brand (str or None), platform.
+- **When it has nothing:** Returns an empty list `[]` — not None, not a string, not an exception.
 
 ### `suggest_outfit`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Calls the model via `generate()` to suggest one or two outfits that pair the thrifted item with pieces from the user's wardrobe.
+- **Inputs:** `new_item` (dict) — a listing dict from search_listings, the item the user is considering; `wardrobe` (dict) — has an `items` key holding a list of wardrobe item dicts, each with id, name, category, colors (list), style_tags (list), notes (str or None). The list may be empty.
+- **Returns:** A non-empty string describing one or two outfits, each naming specific wardrobe pieces by their `name` alongside the new item.
+- **When it has nothing:** If `wardrobe["items"]` is empty, returns a non-empty string of general styling advice for the item — never `""`, never an exception.
 
 ### `create_fit_card`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Calls the model via `generate()` to write a short, post-style caption about the find (not a product description).
+- **Inputs:** `outfit` (str) — the outfit suggestion string from `suggest_outfit()`; `new_item` (dict) — the listing dict for the selected item from `search_listings()`.
+- **Returns:** A two-to-four sentence caption string that mentions the item's title, price, and platform once each and names the specific vibe; wording varies between runs.
+- **When it has nothing:** If `outfit` is empty or whitespace-only, skips the model call and returns the string "Can't write a fit card without an outfit suggestion." — never an exception.
 
 ---
 
@@ -93,7 +93,7 @@
      The grader checks your code against what you claim here, so the file and
      function have to be real. -->
 
-**Branch rule:**
+**Branch rule:** If `search_listings` returns an empty list, put a message in `session["error"]` telling the user what to change (e.g. raise the max price, drop the size, or use broader keywords) and return the session without calling `suggest_outfit`. Otherwise, put the first result in `session["selected_item"]` and go to `suggest_outfit`.
 
 **Where it lives:** `agent.py::run_agent`
 
@@ -121,19 +121,39 @@ $ python app.py ask '...'
 
 ```
 $ python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
-
+[{'id': 'lst_002', 'title': 'Y2K Baby Tee — Butterfly Print', 'description': 'Super cute early 2000s baby tee with butterfly graphic. Fitted crop length. Tag says medium but fits like a small.', 'category': 'tops', 'style_tags': ['y2k', 'vintage', 'graphic tee', 'cottagecore'], 'size': 'S/M', 'condition': 'excellent', 'price': 18.0, 'colors': ['white', 'pink', 'purple'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_006', 'title': 'Graphic Tee — 2003 Tour Bootleg Style', 'description': 'Vintage-style bootleg tee with faded graphic. Slightly boxy fit. 100% cotton, soft and worn-in.', 'category': 'tops', 'style_tags': ['graphic tee', 'vintage', 'grunge', 'streetwear', 'band tee'], 'size': 'L', 'condition': 'good', 'price': 24.0, 'colors': ['black'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_017', 'title': 'Mesh Long-Sleeve Top — Black', 'description': 'Sheer black mesh long-sleeve. Great for layering under a graphic tee or over a bralette. Stretchy material, fits true to size.', 'category': 'tops', 'style_tags': ['y2k', 'grunge', 'goth', 'layering'], 'size': 'S/M', 'condition': 'excellent', 'price': 15.0, 'colors': ['black'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_033', 'title': 'Vintage Band Tee — Faded Grey', 'description': 'Faded grey band-style tee with distressed graphic. Crew neck. Fits boxy. Well-loved but no holes or major damage.', 'category': 'tops', 'style_tags': ['vintage', 'grunge', 'band tee', 'graphic tee', 'streetwear'], 'size': 'L', 'condition': 'fair', 'price': 19.0, 'colors': ['grey', 'charcoal'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_015', 'title': 'Vintage Graphic Hoodie — Faded Black', 'description': 'Faded black pullover hoodie with barely-visible vintage graphic on the chest. Cozy interior. Some pilling but adds to the worn-in look.','category': 'tops', 'style_tags': ['vintage', 'grunge', 'graphic', 'streetwear'], 'size': 'L', 'condition': 'fair', 'price': 26.0, 'colors': ['black', 'charcoal'], 'brand': None, 'platform': 'depop'}]
 ```
-
+[]
 ```
 $ python -c "from tools import suggest_outfit; ..."
 
 ```
+Here are two ways to style your Vintage Levi's 501 Jeans:
 
+**Outfit 1: Casual Streetwear**
+*   **Top:** Oversized grey crewneck sweatshirt
+*   **Shoes:** Chunky white sneakers
+*   **Accessory:** Black crossbody bag
+
+**Outfit 2: Edgy & Cropped**
+*   **Top:** White ribbed tank top
+*   **Outerwear:** Vintage black denim jacket
+*   **Shoes:** Black combat boots
+*   **Accessory:** Brown leather belt
 ```
+
+Empty 
+
+**Outfit Idea 1: Classic Off-Duty Casual**
+Pair the vintage Levi's with a crisp white cotton t-shirt tucked in casually at the front. Layer an oversized black leather biker jacket over the top for some texture contrast. Finish the look with a pair of retro leather sneakers and a minimalist canvas tote bag. 
+
+**Outfit Idea 2: Elevated Streetwear**
+Style the medium wash denim with an oversized, boxy button-down shirt in blue-and-white stripes, worn open over a ribbed white tank top. Add a chunky black leather belt with a statement silver buckle to cinch the waist, and step into some classic chunky loafers. Accessorize with a silver chain necklace to tie the metallic details together.
+
 $ python -c "from tools import create_fit_card; ..."
 
 ```
-
+Found the absolute holy grail on depop today—these Vintage Levi's 501 Jeans in the dreamiest medium wash for just $38.00! Can't wait to live in them with my chunky white sneakers and an oversized grey sweatshirt for the ultimate cozy streetwear fit. Honestly, nothing beats that broken-in indigo denim feeling.
 ---
 
 ## How I Used AI

@@ -42,7 +42,7 @@ Given a query that matches no listings, the agent stops before calling
 
 ---
 
-## 3. Something about state
+## 3. The itme search found is the item suggest_outfit received
 
 <!-- YOU WRITE THIS ONE.
 
@@ -53,16 +53,17 @@ Given a query that matches no listings, the agent stops before calling
      look like state failure — it looks like a tool problem. Something that
      compares session["selected_item"] against what actually reached
      suggest_outfit is the shape you're after. -->
-
+    Given a query that matches at least one listing, the listing `id` in `session["selected_item"]` is the same as `session["search_results"][0]["id"]` and the same as the `new_item` id shown in the trace's `suggest_outfit` input line — 5 of 5 tries. 
 
 
 **Why this target:**
+The fitfinder's whole goal is pairing the item found with their wardrobe, so the outfit is worthless if it's built around a different item. The handoff from `search_listings` to `suggest_outfit` doesn't involve the model — so there is no randomness to allow for. A single mismatch means my loop passed the wrong variable, which is a bug, so the target is 5 out of 5 rather than 4 of 5. 
 
 
 
 ---
 
-## 4. Something about the fit card
+## 4. The fit card names the item, price and platform, at caption length
 
 <!-- YOU WRITE THIS ONE.
 
@@ -75,15 +76,16 @@ Given a query that matches no listings, the agent stops before calling
      sentence? A card longer than a caption anyone would post? Any of those can
      be turned into a number. -->
 
-
+For 5 different items, each card mention the item, and its price, and platform, and is 2-4 sentences long — at least 4 of 5 tries. 
 
 **Why this target:**
+These rule live in a prompt, and the model doesn't always follow the prompt exactly — at temperature 0.9, captions vary on purpose. But the price and platform are handed to the model directly in the listing dict, so more than one miss would mean my prompt isn't clear enough.  
 
 
 
 ---
 
-## 5. Your choice
+## 5. suggest_outfit only uses items the user actually have 
 
 <!-- YOU WRITE THIS ONE TOO.
 
@@ -91,11 +93,11 @@ Given a query that matches no listings, the agent stops before calling
      wardrobe path, what happens when the model can't be reached, whether the
      search respects a price ceiling — anything, as long as it names a number
      or an observable outcome. -->
-
+Using the example wardrobe on 5 matching queries, every piece the outfit suggestion presents are from the user's `wardrobe["items"]` — no invented pieces — in at least 4 of 5 tries. 
 
 
 **Why this target:**
-
+The prompt lists wardrobe item and asks the model to only use those, but nothing in the code enforces it. At temperature 0.9, there is some randomness. It can complete an outfit that sounds right but isn't there in the wardrobe. So I allow one miss — more than one miss means my prompt isn't constraining it enough. 
 
 
 ---

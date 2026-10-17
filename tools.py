@@ -78,9 +78,35 @@ def search_listings(
     Test it from a terminal before you move on:
         python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
     """
-    # TODO: replace this with your implementation
-    return []
+    des = description.lower().split()
+    res = []
+    for item in load_listings():
+        if max_price is not None and item["price"] > max_price:
+            continue
+        if size is not None:
+            # "S/M" -> ["s", "m"], "US 9" -> ["us", "9"]: match whole tokens only
+            tokens = item["size"].lower().replace("/", " ").split()
+            if size.lower() not in tokens:
+                continue
 
+        # brand could be None, so it's left out. No need to compare size as we
+        # already filtered by it. Price is a float, it won't match any text.
+        # Some fields are lists, so make everything one long string first.
+        text = " ".join([
+            item["description"],
+            item["title"],
+            item["category"],
+            " ".join(item["style_tags"]),
+            " ".join(item["colors"]),
+        ])
+        words = text.lower().split()
+
+        score = sum(1 for w in des if w in words)
+        if score > 0:
+            res.append((score, item))
+
+    res.sort(key=lambda x: x[0], reverse=True)
+    return [item for _, item in res][:config.SEARCH_RESULT_LIMIT]
 
 # ── Tool 2: suggest_outfit ────────────────────────────────────────────────────
 
@@ -112,8 +138,50 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
     Test it from a terminal before you move on:
         python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_example_wardrobe()))"
     """
-    # TODO: replace this with your implementation
-    return ""
+    item_text = (
+        f"{new_item['title']} ({new_item['category']}, ${new_item['price']:.2f})\n"
+        f"Colors: {', '.join(new_item['colors'])}\n"
+        f"Style: {', '.join(new_item['style_tags'])}\n"
+        f"Description: {new_item['description']}"
+    )
+
+    items = wardrobe.get("items") or []
+
+    # Empty wardrobe: there is nothing to pair with, so ask for general advice
+    # and tell the model not to pretend the user owns anything.
+    if not items:
+        # rule: definition, do's and dont's
+        system = (
+            "You are a thrift stylist. The user has no saved wardrobe. "
+            "Give general styling advice for the item: one or two outfit ideas "
+            "described as kinds of pieces (e.g. 'straight-leg jeans'). Never say "
+            "'your' before a clothing item, because the user owns nothing we know of."
+        )
+        # specific 
+        prompt = f"Thrifted item:\n{item_text}\n\nSuggest one or two outfits."
+        return generate(prompt, system=system)
+
+    # Non-empty wardrobe: list each piece by its exact name so the model can
+    # quote it, and so criterion 5 can be checked against wardrobe["items"].
+    wardrobe_text = "\n".join(
+        f"- {w['name']} ({w['category']}; {', '.join(w['colors'])})"
+        + (f" — {w['notes']}" if w.get("notes") else "")
+        for w in items
+    )
+    # system prompt: agent's control surface — when to do what, and what to do with nothing
+    system = (
+        "You are a thrift stylist. Suggest one or two outfits that pair the "
+        "thrifted item with pieces from the user's wardrobe. Use ONLY pieces "
+        "from the wardrobe list, and refer to each by its exact name as written. "
+        "Do not invent pieces the user doesn't own. Keep it brief."
+    )
+    # user prompt: user's request 
+    prompt = (
+        f"Thrifted item:\n{item_text}\n\n"
+        f"User's wardrobe:\n{wardrobe_text}\n\n"
+        "Suggest one or two outfits."
+    )
+    return generate(prompt, system=system)
 
 
 # ── Tool 3: create_fit_card ───────────────────────────────────────────────────
@@ -152,5 +220,26 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
     Test it from a terminal before you move on:
         python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0]))"
     """
-    # TODO: replace this with your implementation
-    return ""
+    # None, "", " ", "\n"
+    if not outfit or not outfit.strip():
+        return "Can't write a fit card without an outfit suggestion."
+
+    system = (
+        "You write captions for thrift finds. Write a 2-4 sentence caption that "
+        "reads like a real social media post, not a product description. "
+        "Write as the person who just found and bought the item, not the seller. "
+        "Mention the item's title, its price, and its platform exactly once each. "
+        "Be specific about the vibe, using the style and the outfit you're given. "
+        "Return only the caption."
+    )
+
+    user = (
+        f"Item: {new_item['title']}\n"
+        f"Price: ${new_item['price']:.2f}\n"
+        f"Platform: {new_item['platform']}\n"
+        f"Style: {', '.join(new_item['style_tags'])}\n"
+        f"Colors: {', '.join(new_item['colors'])}\n\n"
+        f"Outfit:\n{outfit}\n\n"
+        "Write the caption."
+    )
+    return generate(user, system=system)
