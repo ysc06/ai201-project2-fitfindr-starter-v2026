@@ -28,6 +28,12 @@ tool calls and returns a fit card — in at least 4 of 5 tries.
 <!-- Why 4 of 5 and not 5 of 5? Something about your search, probably —
      "my search is a plain keyword match and some phrasings will miss" is a
      real answer. -->
+My search is a plain keyword match: it splits the query and the listing text on
+spaces and counts exact word overlaps. Some phrasings will miss even when a
+matching item exists — "t-shirt" never matches "tee", and a word with
+punctuation stuck to it in the listing ("graphic.") doesn't count as "graphic".
+This path also makes two model calls, so one bad response can break a run. One
+miss in five allows for that; more than one means the search or parsing needs work.
 
 ---
 
@@ -39,10 +45,16 @@ Given a query that matches no listings, the agent stops before calling
 **Why this target:**
 <!-- Why is 5 of 5 reasonable here when criterion 1 isn't? What's different
      about this path? -->
+Nothing on this path involves the model. `parse_query` and `search_listings` are
+plain Python, so the same query gives the same empty list every time, and
+`if not session["search_results"]` returns before `suggest_outfit` is ever
+reached. The message is built from the fields the user actually set, so it
+always names something to change. With no randomness, any miss is a bug in my
+branch, not variance, so 5 of 5 is the only fair target.
 
 ---
 
-## 3. The itme search found is the item suggest_outfit received
+## 3. The item search found is the item suggest_outfit received
 
 <!-- YOU WRITE THIS ONE.
 
@@ -53,11 +65,12 @@ Given a query that matches no listings, the agent stops before calling
      look like state failure — it looks like a tool problem. Something that
      compares session["selected_item"] against what actually reached
      suggest_outfit is the shape you're after. -->
-    Given a query that matches at least one listing, the listing `id` in `session["selected_item"]` is the same as `session["search_results"][0]["id"]` and the same as the `new_item` id shown in the trace's `suggest_outfit` input line — 5 of 5 tries. 
+
+Given a query that matches at least one listing, the listing `id` in `session["selected_item"]` is the same as `session["search_results"][0]["id"]` and the same as the `new_item` id shown in the trace's `suggest_outfit` input line — 5 of 5 tries. 
 
 
 **Why this target:**
-The fitfinder's whole goal is pairing the item found with their wardrobe, so the outfit is worthless if it's built around a different item. The handoff from `search_listings` to `suggest_outfit` doesn't involve the model — so there is no randomness to allow for. A single mismatch means my loop passed the wrong variable, which is a bug, so the target is 5 out of 5 rather than 4 of 5. 
+FitFindr's whole goal is pairing the item found with the user's wardrobe, so the outfit is worthless if it's built around a different item. The handoff from `search_listings` to `suggest_outfit` doesn't involve the model — so there is no randomness to allow for. A single mismatch means my loop passed the wrong variable, which is a bug, so the target is 5 out of 5 rather than 4 of 5. 
 
 
 
@@ -76,16 +89,16 @@ The fitfinder's whole goal is pairing the item found with their wardrobe, so the
      sentence? A card longer than a caption anyone would post? Any of those can
      be turned into a number. -->
 
-For 5 different items, each card mention the item, and its price, and platform, and is 2-4 sentences long — at least 4 of 5 tries. 
+For 5 different items, each card mentions the item, its price, and its platform, and is 2-4 sentences long — at least 4 of 5 tries. 
 
 **Why this target:**
-These rule live in a prompt, and the model doesn't always follow the prompt exactly — at temperature 0.9, captions vary on purpose. But the price and platform are handed to the model directly in the listing dict, so more than one miss would mean my prompt isn't clear enough.  
+These rules live in a prompt, and the model doesn't always follow the prompt exactly — at temperature 0.9, captions vary on purpose. But the price and platform are handed to the model directly in the listing dict, so more than one miss would mean my prompt isn't clear enough.  
 
 
 
 ---
 
-## 5. suggest_outfit only uses items the user actually have 
+## 5. suggest_outfit only uses items the user actually has 
 
 <!-- YOU WRITE THIS ONE TOO.
 
@@ -93,11 +106,12 @@ These rule live in a prompt, and the model doesn't always follow the prompt exac
      wardrobe path, what happens when the model can't be reached, whether the
      search respects a price ceiling — anything, as long as it names a number
      or an observable outcome. -->
-Using the example wardrobe on 5 matching queries, every piece the outfit suggestion presents are from the user's `wardrobe["items"]` — no invented pieces — in at least 4 of 5 tries. 
+
+Using the example wardrobe on 5 matching queries, every piece the outfit suggestion presents is from the user's `wardrobe["items"]` — no invented pieces — in at least 4 of 5 tries. 
 
 
 **Why this target:**
-The prompt lists wardrobe item and asks the model to only use those, but nothing in the code enforces it. At temperature 0.9, there is some randomness. It can complete an outfit that sounds right but isn't there in the wardrobe. So I allow one miss — more than one miss means my prompt isn't constraining it enough. 
+The prompt lists the wardrobe items and asks the model to only use those, but nothing in the code enforces it. At temperature 0.9, there is some randomness. It can complete an outfit that sounds right but isn't there in the wardrobe. So I allow one miss — more than one miss means my prompt isn't constraining it enough. 
 
 
 ---

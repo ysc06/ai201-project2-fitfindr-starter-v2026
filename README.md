@@ -41,6 +41,7 @@
 
 <!-- Three or four sentences: what a user asks for, and what they get back. -->
 
+FitFindr takes a plain-English request for a thrifted item, like "vintage graphic tee under $30" or "black jeans size M". It searches 40 secondhand listings from Depop, ThredUp and Poshmark for the best keyword match within the user's price and size, then suggests one or two outfits that pair that item with pieces already in the user's wardrobe. It finishes with a short, post-style caption for the find. If nothing matches, it stops early and tells the user which filter to loosen.
 
 
 ---
@@ -97,9 +98,9 @@
 
 **Where it lives:** `agent.py::run_agent`
 
-**How the query is parsed:** <!-- regex, string splitting, or asking the model — say which -->
+**How the query is parsed:** String splitting, in `agent.py::parse_query`. The query is lowercased, commas become spaces, and it's split into words. A word starting with `$` becomes `max_price` (float); the word after `size` becomes `size`; every other word is kept for `description` unless it's in `STOPWORDS` (filler like "looking", "for", "a", and price words like "under"). Anything not given stays `None`.
 
-**What moves through the session:** <!-- which fields, in what order -->
+**What moves through the session:** `query` → `parsed` (description, size, max_price) → `search_results` (list of listing dicts) → branch: empty sets `error` and returns; otherwise → `selected_item` (`search_results[0]`) → `outfit_suggestion` (from `suggest_outfit(selected_item, wardrobe)`) → `fit_card` (from `create_fit_card(outfit_suggestion, selected_item)`). Each tool reads its inputs back out of the session, not from the previous call's return value.
 
 ---
 
@@ -113,21 +114,35 @@
 **One full query**
 
 ```
-$ python app.py ask '...'
+$ python app.py ask 'looking for a vintage graphic tee under $30'
 
+  Found:    Y2K Baby Tee — Butterfly Print — $18.0 on depop
+
+  Outfit:   **Outfit 1: Y2K Casual Streetwear**
+Pair the Y2K Baby Tee — Butterfly Print with the Baggy straight-leg jeans, dark wash, layered underneath the Black cropped zip hoodie. Finish the look with the Chunky white sneakers and the Black crossbody bag.
+
+**Outfit 2: Edgy Contrast**
+Pair the Y2K Baby Tee — Butterfly Print with the Wide-leg khaki trousers, styled with the Brown leather belt. Throw on the Vintage black denim jacket and ground the outfit with the Black combat boots.
+
+  Fit card: Just scored this Y2K Baby Tee — Butterfly Print on depop for $18.00 and I am so obsessed with the white, pink, and purple colorway! I'm totally styling it for a Y2K casual streetwear vibe layered under a black cropped zip hoodie with baggy dark wash jeans and chunky white sneakers. Such a nostalgic little find.
 ```
 
 **The three tools, tested one at a time**
 
+`search_listings` — a match, then nothing:
+
 ```
 $ python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
 [{'id': 'lst_002', 'title': 'Y2K Baby Tee — Butterfly Print', 'description': 'Super cute early 2000s baby tee with butterfly graphic. Fitted crop length. Tag says medium but fits like a small.', 'category': 'tops', 'style_tags': ['y2k', 'vintage', 'graphic tee', 'cottagecore'], 'size': 'S/M', 'condition': 'excellent', 'price': 18.0, 'colors': ['white', 'pink', 'purple'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_006', 'title': 'Graphic Tee — 2003 Tour Bootleg Style', 'description': 'Vintage-style bootleg tee with faded graphic. Slightly boxy fit. 100% cotton, soft and worn-in.', 'category': 'tops', 'style_tags': ['graphic tee', 'vintage', 'grunge', 'streetwear', 'band tee'], 'size': 'L', 'condition': 'good', 'price': 24.0, 'colors': ['black'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_017', 'title': 'Mesh Long-Sleeve Top — Black', 'description': 'Sheer black mesh long-sleeve. Great for layering under a graphic tee or over a bralette. Stretchy material, fits true to size.', 'category': 'tops', 'style_tags': ['y2k', 'grunge', 'goth', 'layering'], 'size': 'S/M', 'condition': 'excellent', 'price': 15.0, 'colors': ['black'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_033', 'title': 'Vintage Band Tee — Faded Grey', 'description': 'Faded grey band-style tee with distressed graphic. Crew neck. Fits boxy. Well-loved but no holes or major damage.', 'category': 'tops', 'style_tags': ['vintage', 'grunge', 'band tee', 'graphic tee', 'streetwear'], 'size': 'L', 'condition': 'fair', 'price': 19.0, 'colors': ['grey', 'charcoal'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_015', 'title': 'Vintage Graphic Hoodie — Faded Black', 'description': 'Faded black pullover hoodie with barely-visible vintage graphic on the chest. Cozy interior. Some pilling but adds to the worn-in look.','category': 'tops', 'style_tags': ['vintage', 'grunge', 'graphic', 'streetwear'], 'size': 'L', 'condition': 'fair', 'price': 26.0, 'colors': ['black', 'charcoal'], 'brand': None, 'platform': 'depop'}]
-```
+
+$ python -c "from tools import search_listings; print(search_listings('zzzz'))"
 []
 ```
-$ python -c "from tools import suggest_outfit; ..."
+
+`suggest_outfit` — example wardrobe, then empty wardrobe:
 
 ```
+$ python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_example_wardrobe()))"
 Here are two ways to style your Vintage Levi's 501 Jeans:
 
 **Outfit 1: Casual Streetwear**
@@ -140,20 +155,27 @@ Here are two ways to style your Vintage Levi's 501 Jeans:
 *   **Outerwear:** Vintage black denim jacket
 *   **Shoes:** Black combat boots
 *   **Accessory:** Brown leather belt
-```
 
-Empty 
+$ python -c "from tools import suggest_outfit; from utils.data_loader import get_empty_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_empty_wardrobe()))"
+Vintage Levi's 501 jeans in a medium wash are the ultimate thrift store staple—they work with almost anything and just get better with age. Here are two ways to style them:
 
 **Outfit Idea 1: Classic Off-Duty Casual**
-Pair the vintage Levi's with a crisp white cotton t-shirt tucked in casually at the front. Layer an oversized black leather biker jacket over the top for some texture contrast. Finish the look with a pair of retro leather sneakers and a minimalist canvas tote bag. 
+Pair the vintage Levi's with a crisp white cotton t-shirt tucked in casually at the front. Layer an oversized black leather biker jacket over the top for some texture contrast. Finish the look with a pair of retro leather sneakers and a minimalist canvas tote bag.
 
 **Outfit Idea 2: Elevated Streetwear**
 Style the medium wash denim with an oversized, boxy button-down shirt in blue-and-white stripes, worn open over a ribbed white tank top. Add a chunky black leather belt with a statement silver buckle to cinch the waist, and step into some classic chunky loafers. Accessorize with a silver chain necklace to tie the metallic details together.
+```
 
-$ python -c "from tools import create_fit_card; ..."
+`create_fit_card` — an outfit, then a blank one:
 
 ```
+$ python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('Pair with chunky white sneakers and an oversized grey sweatshirt.', load_listings()[0]))"
 Found the absolute holy grail on depop today—these Vintage Levi's 501 Jeans in the dreamiest medium wash for just $38.00! Can't wait to live in them with my chunky white sneakers and an oversized grey sweatshirt for the ultimate cozy streetwear fit. Honestly, nothing beats that broken-in indigo denim feeling.
+
+$ python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(repr(create_fit_card('   ', load_listings()[0])))"
+"Can't write a fit card without an outfit suggestion."
+```
+
 ---
 
 ## How I Used AI
@@ -167,15 +189,15 @@ Found the absolute holy grail on depop today—these Vintage Levi's 501 Jeans in
 
 **Moment 1**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* I asked Claude to check my first draft of the `search_listings` Tool Inventory entry against the code.
+- *What came back:* My draft said the tool returns the string "sorry, there is no match." when nothing matches. Claude pointed out that the docstring in `tools.py` requires an empty list, and that a non-empty string is truthy, so `if not results` in my loop would never catch it and `results[0]` would hand the character `"s"` to `suggest_outfit`.
+- *What I changed:* I changed the empty case to `[]` in both the README and the code, and moved the user-facing "no match" message into `run_agent`, which writes it to `session["error"]`. The tool returns the signal and the loop writes the message.
 
 **Moment 2**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* I asked Claude to write `parse_query` for `agent.py`.
+- *What came back:* A regex version that worked on all my test queries, but I couldn't read the patterns well enough to debug them.
+- *What I changed:* I asked for a string-splitting version instead and typed it in myself. I left out the `i += 1` that skips the word after `size`, so "designer ballgown size XXS" parsed to a description of "designer ballgown xxs". I tested it, found the size leaking into the description, and added the line back.
 
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
