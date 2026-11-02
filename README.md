@@ -558,6 +558,93 @@ both the direct function and `call_tool`, and all 14 returned identical lists
 (same listings, same order). That's what I'd expect: the search is plain
 Python with no model call, so the only thing MCP added was the hop.
 
+---
+
+## Failure Modes
+
+Each one triggered on purpose with `python app.py ask`, current code. The
+message each time comes from `agent.py::run_agent` (`session["error"]`) or,
+for the empty wardrobe, from `tools.py::suggest_outfit`; `app.py::_ask_one`
+prints it. All three exited normally — no stack trace, no hang.
+
+**1. Empty search** — `python app.py ask 'designer ballgown size XXS under $5'`
+
+Handled by the branch in `agent.py::run_agent`: an empty result sets
+`session["error"]` and returns before `suggest_outfit`. The message names only
+the filters the user actually set.
+
+```
+[2] search_listings (via MCP)
+      in:  {'description': 'designer ballgown', 'size': 'xxs', 'max_price': 5.0}
+      out: [] (empty)
+      →    branch: empty, stopping
+
+  No listings matched. Try to raise your max price above $5.00, or drop the size filter (xxs), or use broader keywords than "designer ballgown".
+
+0 model calls this session
+```
+
+**2. Empty wardrobe** — `python app.py ask 'denim jacket under $50' --empty-wardrobe`
+
+Handled in `tools.py::suggest_outfit`: with no items it switches to a prompt
+asking for general advice, described as kinds of pieces, and tells the model
+not to say "your" before any of them. It returns advice — not a crash, not an
+empty string:
+
+```
+(running with an empty wardrobe)
+[3] suggest_outfit
+      in:  lst_007 Denim Jacket — Light Wash, Cropped + wardrobe of 0 items
+      out: For a versatile piece like a light-wash cropped denim jacket, here are two distinct styling directions using c…
+      →    empty wardrobe: general advice
+
+  Found:    Denim Jacket — Light Wash, Cropped — $42.0 on poshmark
+
+  Outfit:   For a versatile piece like a light-wash cropped denim jacket, here are two distinct styling directions using classic wardrobe elements:
+
+**Outfit 1: Casual Streetwear**
+*   **Tops:** A vintage band tee or a fitted ribbed baby tee.
+*   **Bottoms:** Wide-leg cargo pants in olive green or black.
+*   **Footwear:** Chunky platform sneakers.
+*   **Accessories:** A nylon shoulder bag and chunky silver hoop earrings.
+
+  Fit card: Scored this vintage band tee, wide-leg cargo pants, and chunky platform sneakers, but the absolute crown jewel is this light-wash cropped Denim Jacket to tie the whole streetwear fit together. Snagged it on poshmark for $42.00 and I am already obsessed with how it looks.
+```
+
+The outfit is handled. The fit card isn't: it says the user "scored" a band
+tee, cargo pants and platform sneakers, which were only general suggestions.
+`create_fit_card` gets no signal that the wardrobe was empty, so it writes the
+suggested pieces up as owned. See What's Still Broken.
+
+**3. Model unavailable** — a wrong key for one run only,
+`GEMINI_API_KEY=not-a-real-key python app.py ask 'corduroy wide-leg pants'`
+(a variable already in the environment wins over `.env`, so `.env` stayed
+untouched; a new query, so the cache couldn't answer it).
+
+Handled in `agent.py::run_agent`: a `try` around the two model-calling steps
+catches `ModelUnavailable`, sets `session["error"]`, records a trace step and
+returns. Before I added it, the exception escaped `run_agent` and only
+`app.py::main`'s catch-all kept it from being a stack trace — it printed
+`ModelUnavailable: The model rejected your API key. ...`, and any other caller
+of `run_agent` would have crashed. Now:
+
+```
+[2] search_listings (via MCP)
+      in:  {'description': 'corduroy wide-leg pants', 'size': None, 'max_price': None}
+      out: 3 items: Corduroy Wide-Leg Pants — Rust, Low-Rise Cargo Pants — Khaki, Wide-Leg Linen Trousers — Natural
+      →    branch: 3 results, continuing with lst_005
+[3] model unavailable
+      out: The model rejected your API key. Check GEMINI_API_KEY in your .env file, or create a fresh key at aistudio.goo…
+      →    stopping
+
+  No outfit was generated. The model rejected your API key. Check GEMINI_API_KEY in your .env file, or create a fresh key at aistudio.google.com.
+
+1 model calls this session
+```
+
+It names what broke (the key was rejected) and what to do (check
+`GEMINI_API_KEY` or make a new key).
+
 
 
 ---
@@ -726,7 +813,18 @@ targets.
 free-tier limit (15 requests a minute) makes 20 tries of every scenario a
 long run.
 
-**4. The trace prints even without `--trace`.** `trace.step()` in `trace.py`
+**4. With an empty wardrobe, the fit card claims pieces the user doesn't
+own.** The outfit correctly gives general advice ("a vintage band tee or a
+fitted ribbed baby tee"), but `create_fit_card` then writes "Scored this
+vintage band tee, wide-leg cargo pants, and chunky platform sneakers" — as if
+the user bought or owns them. `create_fit_card` only sees the outfit text and
+the item, not whether the wardrobe was empty, so it can't tell suggestions
+from owned pieces. *What I'd do:* pass it the wardrobe size, or a flag, and
+have the empty case write about the thrifted item alone. *Why I stopped:* I
+found it while writing up the failure modes, after the after-run; fixing it
+would be a second change, and no criterion covers the empty-wardrobe card.
+
+**5. The trace prints even without `--trace`.** `trace.step()` in `trace.py`
 prints every line as it records it, so `python app.py ask '...'` shows the
 trace whether or not you asked. `--trace` only resets it at the start of the
 run. *What I'd do:* gate the print on a flag set by `start_trace()`. *Why I
