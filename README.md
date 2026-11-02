@@ -435,13 +435,35 @@ Here are two ways to style your 90s silk slip dress using pieces from your wardr
 
 | # | Criterion | Target | Verdict | How I decided |
 |---|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
-| 4 |  |  |  |  |
-| 5 |  |  |  |  |
+| 1 | A matching query completes all three tools | 4 of 5 | MET | 5 of 5 tries returned a fit card without stopping early; 5 ≥ 4. |
+| 2 | An impossible query stops before the second tool | 5 of 5 | MET | 5 of 5 tries stopped with a message naming what to change, and no trace has a `suggest_outfit` step. A 5-of-5 target needs every try, and every try held. |
+| 3 | The item search found is the item suggest_outfit received | 5 of 5 | MET | 5 of 5 tries showed `lst_004` in step [2]'s note and on step [3]'s input line, matching `selected_item`. Every try held. |
+| 4 | The fit card names the item, price and platform, at caption length | 4 of 5 | MET | 5 of 5 tries passed: in each, all five items' cards named the item, price and platform in 2–3 sentences (25 of 25 cards). 5 ≥ 4. |
+| 5 | suggest_outfit only uses items the user actually has | 4 of 5 | MET | 5 of 5 tries passed: in each, none of the five items' suggestions presented a piece outside `wardrobe["items"]` (25 of 25). 5 ≥ 4. |
 
 **Diagnoses**
+
+No criterion missed, so there is no miss to diagnose. Reading the run log to
+score it turned up one problem none of the five criteria checks for:
+
+**The outfit often leaves out the thrifted item.** In 12 of the 65 outfit
+suggestions in the run (counting the empty-wardrobe diagnostic), the thrifted
+item is never named. It clusters: 4 of 5 for the track jacket, 4 of 5 for the
+cargo pants, 2 of 5 for the linen blazer. In criterion 3, try 2, neither
+outfit has the track jacket; in cargo pants, try 1, Outfit 1 has no bottoms
+at all, because the bottoms were meant to be the cargo pants.
+
+- **Place:** the model's output, in `tools.py::suggest_outfit`. The search,
+  the branch and the session are fine — criterion 3 shows `suggest_outfit`
+  received the right item every time.
+- **Mechanism:** the system prompt says "Use ONLY pieces from the wardrobe
+  list". The thrifted item isn't on the wardrobe list, so read literally the
+  rule shuts it out, and the model sometimes obeys that literally — it lists
+  only wardrobe pieces and leaves the new item implied or missing. Nothing in
+  the prompt says the thrifted item must appear in every outfit.
+- **Why the criteria missed it:** criterion 5 checks that nothing *extra*
+  appears, not that the *new item* appears. The same sentence that made
+  criterion 5 pass 25 of 25 is the one that drops the item.
 
 
 
