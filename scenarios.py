@@ -35,7 +35,95 @@ SCENARIOS = [
         "wardrobe": "empty",
         "criterion": None,
     },
-    # TODO: add what your criteria 3, 4 and 5 need.
+    {
+        # Criterion 3 — the id search put first must be the id suggest_outfit
+        # got. Needs 2+ results, or picking the wrong index can't show up:
+        # this one returns 3, lst_004 first. Compare the id in trace step [2]'s
+        # note with the id on step [3]'s input line.
+        "name": "search result reaches suggest_outfit",
+        "query": "90s track jacket in size M",
+        "wardrobe": "example",
+        "criterion": 3,
+    },
+    # Criterion 4 — "for 5 different items", so one scenario per item, each
+    # run five times. Picked to spread what the card has to get right: all
+    # three platforms, prices from $12 to $75, five categories. Each query's
+    # first search result is the item named in the comment.
+    {
+        # lst_022 — $75, depop, outerwear (the most expensive listing)
+        "name": "fit card: leather bomber",
+        "query": "90s leather bomber",
+        "wardrobe": "example",
+        "criterion": 4,
+    },
+    {
+        # lst_018 — $38, thredUp, blazer
+        "name": "fit card: linen blazer",
+        "query": "linen blazer under $40",
+        "wardrobe": "example",
+        "criterion": 4,
+    },
+    {
+        # lst_028 — $44, poshmark, shoes
+        "name": "fit card: chelsea boots",
+        "query": "suede chelsea boots",
+        "wardrobe": "example",
+        "criterion": 4,
+    },
+    {
+        # lst_011 — $27, poshmark, pants
+        "name": "fit card: cargo pants",
+        "query": "low-rise cargo pants",
+        "wardrobe": "example",
+        "criterion": 4,
+    },
+    {
+        # lst_014 — $12, thredUp, accessory (the cheapest of the five)
+        "name": "fit card: leather belt",
+        "query": "braided leather belt under $15",
+        "wardrobe": "example",
+        "criterion": 4,
+    },
+    # Criterion 5 — no invented wardrobe pieces, on 5 matching queries. Picked
+    # to tempt the model: each item's usual pairings are missing from the
+    # example wardrobe (no skirts, dresses, shorts, shirts, jewelry, sandals,
+    # socks). A piece the outfit presents as owned that isn't in
+    # wardrobe["items"] is a FAIL; the thrifted item itself is fine.
+    {
+        # lst_013 — a dress; tempts sandals, jewelry, a cardigan
+        "name": "wardrobe only: slip dress",
+        "query": "silk slip dress",
+        "wardrobe": "example",
+        "criterion": 5,
+    },
+    {
+        # lst_009 — shoes; tempts a pleated skirt, white socks
+        "name": "wardrobe only: mary janes",
+        "query": "platform mary janes",
+        "wardrobe": "example",
+        "criterion": 5,
+    },
+    {
+        # lst_023 — summer top; tempts denim shorts, a skirt, sandals
+        "name": "wardrobe only: halter top",
+        "query": "crochet halter top",
+        "wardrobe": "example",
+        "criterion": 5,
+    },
+    {
+        # lst_036 — formal; tempts a button-down, loafers, jewelry
+        "name": "wardrobe only: velvet blazer",
+        "query": "velvet blazer",
+        "wardrobe": "example",
+        "criterion": 5,
+    },
+    {
+        # lst_017 — sheer layer; tempts a bralette or slip, a mini skirt
+        "name": "wardrobe only: mesh top",
+        "query": "mesh long-sleeve top",
+        "wardrobe": "example",
+        "criterion": 5,
+    },
     #
     # Set "criterion" to the number in criteria.md that the scenario tests.
     # "criterion": None means a diagnostic run — useful to have, but it isn't

@@ -137,8 +137,8 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         "search_listings (via MCP)",
         inputs=str(search_args),
         returned=results,
-        note=f"branch: {len(results)} results, continuing" if results
-             else "branch: empty, stopping",
+        note=f"branch: {len(results)} results, continuing with {results[0]['id']}"
+             if results else "branch: empty, stopping",
     )
 
 
@@ -175,7 +175,8 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         n_owned = len(session["wardrobe"].get("items") or [])
         trace.step(
             "suggest_outfit",
-            inputs=f"{session['selected_item']['title']} + wardrobe of {n_owned} items",
+            inputs=f"{session['selected_item']['id']} {session['selected_item']['title']}"
+                   f" + wardrobe of {n_owned} items",
             returned=session["outfit_suggestion"],
             note="empty wardrobe: general advice" if n_owned == 0 else "",
         )
