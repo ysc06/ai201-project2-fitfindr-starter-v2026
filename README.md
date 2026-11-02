@@ -481,22 +481,82 @@ at all, because the bottoms were meant to be the cargo pants.
      the same length, your branch isn't working — and this is the fastest way
      anyone will ever find that out. -->
 
-**Happy path**
+Both printed by the `trace.step()` calls in `agent.py::run_agent`, run through
+`app.py ask --trace`. Step [2] is the MCP call.
+
+**Happy path** — `python app.py ask 'vintage graphic tee under $30' --trace`
 
 ```
-
+[1] parse_query
+      in:  vintage graphic tee under $30
+      out: {'description': 'vintage graphic tee', 'size': None, 'max_price': 30.0}
+[2] search_listings (via MCP)
+      in:  {'description': 'vintage graphic tee', 'size': None, 'max_price': 30.0}
+      out: 10 items: Y2K Baby Tee — Butterfly Print, Graphic Tee — 2003 Tour Bootleg Style, Vintage Band Tee — Faded Grey … +7 more
+      →    branch: 10 results, continuing with lst_002
+[3] suggest_outfit
+      in:  lst_002 Y2K Baby Tee — Butterfly Print + wardrobe of 10 items
+      out: **Outfit 1: Y2K Casual Streetwear** *   Y2K Baby Tee — Butterfly Print *   Baggy straight-leg jeans, dark wash…
+[4] create_fit_card
+      in:  outfit suggestion + Y2K Baby Tee — Butterfly Print
+      out: Just scored this Y2K Baby Tee — Butterfly Print on depop for only $18.00 and I am already obsessed. Pairing it…
 ```
 
-**Empty search**
+**Empty search** — `python app.py ask 'designer ballgown size XXS under $5' --trace`
 
 ```
+[1] parse_query
+      in:  designer ballgown size XXS under $5
+      out: {'description': 'designer ballgown', 'size': 'xxs', 'max_price': 5.0}
+[2] search_listings (via MCP)
+      in:  {'description': 'designer ballgown', 'size': 'xxs', 'max_price': 5.0}
+      out: [] (empty)
+      →    branch: empty, stopping
 
+  No listings matched. Try to raise your max price above $5.00, or drop the size filter (xxs), or use broader keywords than "designer ballgown".
 ```
 
-**On the MCP move:** <!-- what changed in your code, and whether anything
-behaved differently afterwards. If the rewire didn't work, say exactly where it
-broke — the error text and the last thing that worked. That earns the point in
-full. -->
+The empty run is two steps to the happy path's four. The branch reads step
+[2]'s result and stops there, so `suggest_outfit` and `create_fit_card` never
+run — and the run made 0 model calls, against 2 for the happy path.
+
+**What each step records, and why there:** every `trace.step()` sits right
+after the call it records, so it has both the input and what came back.
+
+- `[1] parse_query` isn't a tool, but every later step depends on it. If a
+  search comes back empty, this line tells you whether the data had nothing or
+  the parse dropped something (a `max_price: None` where you typed `$30`).
+- `[2] search_listings (via MCP)` names the MCP hop, since that's the one call
+  that doesn't go straight to a Python function. Its `→` note records the
+  branch decision both ways — "continuing with `<id>`" or "empty, stopping" —
+  and it's placed before the `if`, so one call covers both paths.
+- `[3] suggest_outfit` shows the id of the listing it was handed. Together with
+  step [2]'s note, that's what criterion 3 is scored from.
+- `[4] create_fit_card` closes the run.
+- A `→` note appears only where the agent made a choice. `parse_query` and
+  `create_fit_card` don't choose anything, so they have none.
+
+Dicts without a `title` (the parsed query, the search arguments) are passed
+through `str()` first; `trace.py`'s `_short()` otherwise prints only their keys.
+
+**On the MCP move:** `search_listings` moved onto MCP; the other two tools
+still run in-process, since they call the model.
+
+- `mcp_server.py` registers it with `@mcp.tool()` under the name
+  `search_listings`. The real function is imported as
+  `from tools import search_listings as _search_listings_impl` — without the
+  alias, the registered tool and the function it calls would share a name and
+  it would call itself.
+- `agent.py` dropped `search_listings` from its `tools` import and now calls
+  `call_tool("search_listings", search_args)` from `mcp_client.py`.
+- `python mcp_client.py` lists the tool with its description and its three
+  arguments: `description: string`, `size: string (optional)`,
+  `max_price: number (optional)`.
+
+Nothing behaved differently afterwards. I ran all 14 scenario queries through
+both the direct function and `call_tool`, and all 14 returned identical lists
+(same listings, same order). That's what I'd expect: the search is plain
+Python with no model call, so the only thing MCP added was the hop.
 
 
 
