@@ -281,8 +281,17 @@ Per-item detail for 4 and 5 (passes out of 5 runs):
   skirt-and-sweater effect" — that describes the look, it doesn't add a skirt.
 
 **Real output from one try**, pasted as text, naming the file and function
-that produced it. Criterion 1, try 1 — `run_eval.py::run_once` calling
-`agent.py::run_agent`, query `vintage graphic tee under $30`, example wardrobe:
+that produced it.
+
+Every block below is copied from `results/run_2026-11-01_2346_before.md`,
+written by `run_eval.py::write_report` from what `run_eval.py::run_once`
+captured when it called `agent.py::run_agent`. Within a run, the trace lines
+come from the `trace.step()` calls in `agent.py::run_agent`, the outfit from
+`tools.py::suggest_outfit`, and the fit card from `tools.py::create_fit_card`.
+
+**Criterion 1 — try 1.** Query `vintage graphic tee under $30`, example
+wardrobe. All three tools ran and a fit card came back
+(`agent.py::run_agent` → `tools.py::suggest_outfit` → `tools.py::create_fit_card`):
 
 ```
 - stopped early: no
@@ -319,6 +328,89 @@ Trace:
       out: **Outfit 1: Casual Y2K Streetwear** *   Y2K Baby Tee — Butterfly Print *   Baggy straight-leg jeans, dark wash…
 [4] create_fit_card
       in:  outfit suggestion + Y2K Baby Tee — Butterfly Print
+      out: Found the absolute cutest Y2K Baby Tee — Butterfly Print on depop for just $18.00 and I am obsessed! The pink …
+```
+
+**Criterion 2 — try 1.** Query `designer ballgown size XXS under $5`, example
+wardrobe. The message is `session["error"]`, set by the empty-search branch in
+`agent.py::run_agent`; the trace ends at step [2], so `suggest_outfit` never ran:
+
+```
+- stopped early: yes — No listings matched. Try to raise your max price above $5.00, or drop the size filter (xxs), or use broader keywords than "designer ballgown".
+- selected_item: (none)
+- search_results: 0
+
+Trace:
+[1] parse_query
+      in:  designer ballgown size XXS under $5
+      out: {'description': 'designer ballgown', 'size': 'xxs', 'max_price': 5.0}
+[2] search_listings (via MCP)
+      in:  {'description': 'designer ballgown', 'size': 'xxs', 'max_price': 5.0}
+      out: [] (empty)
+      →    branch: empty, stopping
+```
+
+**Criterion 3 — try 1.** Query `90s track jacket in size M`, example wardrobe.
+Trace from the `trace.step()` calls in `agent.py::run_agent`: step [2]'s note
+gives `search_results[0]` as `lst_004`, and step [3]'s input line shows
+`suggest_outfit` received `lst_004`, the same listing as `selected_item`:
+
+```
+- stopped early: no
+- selected_item: 90s Track Jacket — Navy/White Stripe ($45.0, poshmark)
+- search_results: 3
+
+Trace:
+[1] parse_query
+      in:  90s track jacket in size M
+      out: {'description': '90s track jacket', 'size': 'm', 'max_price': None}
+[2] search_listings (via MCP)
+      in:  {'description': '90s track jacket', 'size': 'm', 'max_price': None}
+      out: 3 items: 90s Track Jacket — Navy/White Stripe, 90s Silk Slip Dress — Floral, Midi Length, 90s Leather Bomber — Black
+      →    branch: 3 results, continuing with lst_004
+[3] suggest_outfit
+      in:  lst_004 90s Track Jacket — Navy/White Stripe + wardrobe of 10 items
+      out: **Outfit 1: Casual Streetwear** *   **Top:** White ribbed tank top *   **Bottoms:** Baggy straight-leg jeans, …
+[4] create_fit_card
+      in:  outfit suggestion + 90s Track Jacket — Navy/White Stripe
+      out: Just scored this 90s Track Jacket on poshmark for $45.00 and I am already obsessed! Threw it on over baggy dar…
+```
+
+**Criterion 4 — leather bomber, try 1.** Query `90s leather bomber`, example
+wardrobe. Fit card from `tools.py::create_fit_card`. It names the item
+("90s Leather Bomber — Black"), the price ("$75.00"), the platform ("depop"),
+and is 3 sentences:
+
+```
+- selected_item: 90s Leather Bomber — Black ($75.0, depop)
+
+Fit card:
+Absolute core-shattered because I finally found the 90s Leather Bomber — Black I’ve been hunting for months on depop. For $75.00, the worn-in leather is giving major grunge energy, and it looks so good thrown over an oversized grey crewneck and khaki trousers. Such a classic vintage win!
+```
+
+**Criterion 5 — slip dress, try 1.** Query `silk slip dress`, example
+wardrobe. Outfit suggestion from `tools.py::suggest_outfit`. Every piece
+besides the thrifted dress is one of the ten in `wardrobe["items"]`: Oversized
+grey crewneck sweatshirt, Black combat boots, Black crossbody bag, Vintage
+black denim jacket, Chunky white sneakers:
+
+```
+- selected_item: 90s Silk Slip Dress — Floral, Midi Length ($30.0, depop)
+
+Outfit suggestion:
+Here are two ways to style your 90s silk slip dress using pieces from your wardrobe:
+
+**Outfit 1: Effortless 90s Grunge**
+*   **Thrifted Item:** 90s Silk Slip Dress — Floral, Midi Length
+*   **Layer:** Oversized grey crewneck sweatshirt (worn layered right over the dress for a skirt-and-sweater 90s effect)
+*   **Shoes:** Black combat boots
+*   **Accessories:** Black crossbody bag
+
+**Outfit 2: Edgy Casual**
+*   **Thrifted Item:** 90s Silk Slip Dress — Floral, Midi Length
+*   **Layer:** Vintage black denim jacket
+*   **Shoes:** Chunky white sneakers
+*   **Accessories:** Black crossbody bag
 ```
 
 ---
