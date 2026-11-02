@@ -229,17 +229,96 @@ $ python -c "from tools import create_fit_card; from utils.data_loader import lo
 
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 |---|---|---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |  |  |
+| 1. A matching query completes all three tools | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 2. An impossible query stops before the second tool | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 3. The item search found is the item suggest_outfit received | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 4. The fit card names the item, price and platform, at caption length | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 5. suggest_outfit only uses items the user actually has | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+
+Source: `results/run_2026-11-01_2346_before.md`, from `run_eval.py --label before`
+(caching off, temperature 0.9).
+
+**How the rows were scored.**
+
+- **1** — PASS if the run returned a fit card without stopping early.
+- **2** — PASS if the run stopped with a message naming what to change, and
+  the trace has no `suggest_outfit` step. All five tries stopped at step [2].
+- **3** — PASS if the id in trace step [2]'s note (`search_results[0]`) matches
+  the id on step [3]'s input line (what `suggest_outfit` got), and
+  `selected_item` is the same listing. All five: `lst_004` → `lst_004`, query
+  `90s track jacket in size M` (3 results, so a wrong index would show).
+- **4 and 5** — each criterion says "5 different items", so each has five
+  scenarios, one item apiece, every one run five times. Try *k* is round *k*:
+  each of the five items run once. A try is PASS only if all five items pass.
+
+Per-item detail for 4 and 5 (passes out of 5 runs):
+
+| Criterion | Item | Price | Platform | Passes |
+|---|---|---|---|---|
+| 4 | lst_022 90s Leather Bomber | $75 | depop | 5/5 |
+| 4 | lst_018 Vintage Linen Blazer | $38 | thredUp | 5/5 |
+| 4 | lst_028 Suede Chelsea Boots | $44 | poshmark | 5/5 |
+| 4 | lst_011 Low-Rise Cargo Pants | $27 | poshmark | 5/5 |
+| 4 | lst_014 Leather Belt | $12 | thredUp | 5/5 |
+| 5 | lst_013 90s Silk Slip Dress | $30 | depop | 5/5 |
+| 5 | lst_009 Platform Mary Janes | $55 | depop | 5/5 |
+| 5 | lst_023 Crochet Halter Top | $22 | depop | 5/5 |
+| 5 | lst_036 Velvet Blazer | $52 | depop | 5/5 |
+| 5 | lst_017 Mesh Long-Sleeve Top | $15 | depop | 5/5 |
+
+- **4** — a card passes if it names the item, gives the right price ($75 or
+  $75.00 both count), names the platform, and is 2–4 sentences. Every card
+  was 2 or 3 sentences. One judgment call: linen blazer try 5 said "cream
+  linen blazer" instead of the full title "Vintage Linen Blazer — Cream". I
+  counted it as naming the item, since the criterion says "mentions the
+  item", not "quotes the title".
+- **5** — a suggestion fails if it presents any piece that isn't in
+  `wardrobe["items"]` and isn't the thrifted item itself, including optional
+  extras like "add some jewelry". The five items were picked because their
+  usual pairings are missing from the example wardrobe (no skirts, shorts,
+  shirts, jewelry, sandals or socks). None of the 25 invented a piece. Closest
+  call: slip dress try 1 says the sweatshirt over the dress gives "a
+  skirt-and-sweater effect" — that describes the look, it doesn't add a skirt.
 
 **Real output from one try**, pasted as text, naming the file and function
-that produced it:
+that produced it. Criterion 1, try 1 — `run_eval.py::run_once` calling
+`agent.py::run_agent`, query `vintage graphic tee under $30`, example wardrobe:
 
 ```
+- stopped early: no
+- selected_item: Y2K Baby Tee — Butterfly Print ($18.0, depop)
+- search_results: 10
 
+Outfit suggestion:
+**Outfit 1: Casual Y2K Streetwear**
+*   Y2K Baby Tee — Butterfly Print
+*   Baggy straight-leg jeans, dark wash
+*   Vintage black denim jacket
+*   Chunky white sneakers
+*   Black crossbody bag
+
+**Outfit 2: Elevated Contrast**
+*   Y2K Baby Tee — Butterfly Print
+*   Wide-leg khaki trousers
+*   Brown leather belt
+*   Black combat boots
+
+Fit card:
+Found the absolute cutest Y2K Baby Tee — Butterfly Print on depop for just $18.00 and I am obsessed! The pink and purple butterfly graphics give major early 2000s mall-goth vibes, especially paired with my baggy dark wash jeans and a vintage black denim jacket. Can't wait to style it with wide-leg khakis and combat boots next time!
+
+Trace:
+[1] parse_query
+      in:  vintage graphic tee under $30
+      out: {'description': 'vintage graphic tee', 'size': None, 'max_price': 30.0}
+[2] search_listings (via MCP)
+      in:  {'description': 'vintage graphic tee', 'size': None, 'max_price': 30.0}
+      out: 10 items: Y2K Baby Tee — Butterfly Print, Graphic Tee — 2003 Tour Bootleg Style, Vintage Band Tee — Faded Grey … +7 more
+      →    branch: 10 results, continuing with lst_002
+[3] suggest_outfit
+      in:  lst_002 Y2K Baby Tee — Butterfly Print + wardrobe of 10 items
+      out: **Outfit 1: Casual Y2K Streetwear** *   Y2K Baby Tee — Butterfly Print *   Baggy straight-leg jeans, dark wash…
+[4] create_fit_card
+      in:  outfit suggestion + Y2K Baby Tee — Butterfly Print
 ```
 
 ---
