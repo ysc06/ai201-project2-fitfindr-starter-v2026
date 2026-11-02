@@ -687,6 +687,52 @@ small difference from noise.
      you did. "I ran out of time" is fine if it's true. Pretending nothing is
      left is not. -->
 
+No criterion is still missed — all five were MET before and after. That
+doesn't mean nothing is broken. These are the problems I know about, in order
+of how much they'd matter to a user.
+
+**1. The search picks the wrong item when the words overlap.**
+`search_listings` scores by keyword overlap, and the agent always takes the
+first result. Searching `leather jacket` puts `lst_004 90s Track Jacket` first
+and the actual `lst_022 90s Leather Bomber` fifth, so a user asking for a
+leather jacket gets a nylon track jacket styled and captioned. Synonyms fail
+outright: `tee` returns 4 listings and `t-shirt` returns 0, which the agent
+then reports as "No listings matched" even though four tees exist.
+*What I'd do:* weight title matches above description matches, and map a
+few common synonyms (t-shirt → tee, sneakers → trainers) before scoring.
+*Why I stopped:* the unit asked for one change, and my diagnosis pointed at
+the prompt, not the search. None of my scenario queries happen to hit this,
+which is also why no criterion caught it.
+
+**2. My criteria have a hole the improvement fell through.** None of the five
+checks that the thrifted item actually appears in the outfit. That's why 26
+of 112 outfits could leave it out while every criterion read MET, and why the
+fix doesn't move a single row of the run log. Criterion 5 checks that nothing
+*extra* appears, never that the *new item* does.
+*What I'd do:* add it as a revision under criterion 5 in `criteria.md` —
+"every outfit includes the thrifted item and no piece outside the wardrobe" —
+without editing the original line, then re-score both run logs against it.
+*Why I stopped:* the revision rule is for criteria that couldn't be
+measured. This one could be measured; it just measured too little. I'd
+rather say that here than revise it after seeing the result it would change.
+
+**3. Five tries can't separate a small change from noise.** The
+empty-wardrobe run went from 1 of 5 to 0 of 5 missing the item though I
+never touched its prompt. The 26 → 0 drop is far beyond that, but a smaller
+effect wouldn't be distinguishable at temperature 0.9 with five tries.
+*What I'd do:* `python run_eval.py --tries 20` on the scenarios the change
+targets.
+*Why I stopped:* five tries is what my criteria are written against, and the
+free-tier limit (15 requests a minute) makes 20 tries of every scenario a
+long run.
+
+**4. The trace prints even without `--trace`.** `trace.step()` in `trace.py`
+prints every line as it records it, so `python app.py ask '...'` shows the
+trace whether or not you asked. `--trace` only resets it at the start of the
+run. *What I'd do:* gate the print on a flag set by `start_trace()`. *Why I
+stopped:* it's in the starter's `trace.py`, it doesn't affect any result, and
+changing it wasn't the one change this unit asked for.
+
 
 
 <!-- ═════════════════════════════════════════════════════════════════════
