@@ -509,24 +509,113 @@ full. -->
 
      `python run_eval.py --label after` -->
 
-**What I changed:**
+**What I changed:** one prompt — the system prompt in
+`tools.py::suggest_outfit`, non-empty-wardrobe branch. Nothing else: same
+scenarios, same queries, same temperature, the empty-wardrobe prompt untouched.
 
-**Which failure it was meant to fix:**
+```diff
+-        "thrifted item with pieces from the user's wardrobe. Use ONLY pieces "
+-        "from the wardrobe list, and refer to each by its exact name as written. "
++        "thrifted item with pieces from the user's wardrobe. Every outfit must "
++        "include the thrifted item, named by its title. Apart from the thrifted "
++        "item, use ONLY pieces from the wardrobe list, and refer to each by its "
++        "exact name as written. "
+```
+
+"Do not invent pieces the user doesn't own" stayed as it was, because that
+line is what kept criterion 5 at 25 of 25 and I didn't want to loosen it.
+
+**Which failure it was meant to fix:** the one in Diagnoses — outfits that
+leave out the thrifted item. "Use ONLY pieces from the wardrobe list" shut the
+thrifted item out, since it isn't on the wardrobe list. The new wording
+requires the item in every outfit and makes it the one exception to "ONLY".
 
 ### Run Log — After
 
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 |---|---|---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |  |  |
+| 1. A matching query completes all three tools | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 2. An impossible query stops before the second tool | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 3. The item search found is the item suggest_outfit received | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 4. The fit card names the item, price and platform, at caption length | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 5. suggest_outfit only uses items the user actually has | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+
+Source: `results/run_2026-11-02_0014_after.md`, from `run_eval.py --label after`
+(caching off, temperature 0.9). Scored by the same rules as Run Log — Before.
+No crashes; criterion 3 was `lst_004` → `lst_004` in all five tries; all 25
+fit cards named item, price and platform in 2–3 sentences; none of the 25
+criterion-5 suggestions presented a piece outside `wardrobe["items"]`.
+
+**Before and after, side by side:**
+
+| | Before (`run_2026-11-01_2346_before.md`) | After (`run_2026-11-02_0014_after.md`) |
+|---|---|---|
+| 1. Matching query completes | 5/5 MET | 5/5 MET |
+| 2. Impossible query stops early | 5/5 MET | 5/5 MET |
+| 3. Search item reaches suggest_outfit | 5/5 MET | 5/5 MET |
+| 4. Fit card: item, price, platform, length | 25/25 cards, MET | 25/25 cards, MET |
+| 5. No invented wardrobe pieces | 25/25 suggestions, MET | 25/25 suggestions, MET |
+| **Suggestions that never name the thrifted item** (all 65 runs that reached `suggest_outfit`) | **12 / 65** | **0 / 65** |
+| **Individual outfits missing the thrifted item** (example-wardrobe runs, each outfit counted separately) | **26 / 112** | **0 / 105** |
+
+Same query, before and after — `low-rise cargo pants`, criterion 4, try 1,
+from `tools.py::suggest_outfit`:
+
+```
+BEFORE
+**Outfit 1: Y2K Streetwear**
+*   **Top:** White ribbed tank top
+*   **Outerwear:** Black cropped zip hoodie
+*   **Shoes:** Chunky white sneakers
+*   **Accessories:** Black crossbody bag
+
+**Outfit 2: Casual Layered**
+*   **Top:** Oversized grey crewneck sweatshirt
+*   **Shoes:** Black combat boots
+*   **Accessories:** Brown leather belt
+
+AFTER
+Here is a Y2K-inspired streetwear outfit using your thrifted item and pieces from your wardrobe:
+
+**Outfit:**
+* Low-Rise Cargo Pants — Khaki
+* White ribbed tank top
+* Black cropped zip hoodie
+* Chunky white sneakers
+* Black crossbody bag
+```
+
+Before, neither outfit has any bottoms: the slot the cargo pants should fill
+is just empty. After, the pants are the first line.
 
 **Did it help, and how do I know:**
 
-<!-- If it made things worse, say that. Honestly reported, that earns full
-     credit and is more interesting than one that worked. -->
+Yes, for the problem it targeted. Outfits missing the thrifted item went from
+26 of 112 to 0 of 105, and the two worst items — track jacket and cargo pants,
+4 of 5 runs each before — went to 0 of 5. I counted by splitting each
+suggestion at its outfit headings and checking each outfit for a word unique
+to the thrifted item ("track jacket", "cargo", "chelsea"…), then read the
+flagged ones by hand to confirm they really lacked the item.
+
+The side effect I was watching for didn't happen. Making the thrifted item an
+exception to "ONLY" could have opened the door to other exceptions, so I read
+all 25 criterion-5 suggestions again: every piece is still from
+`wardrobe["items"]`. The closest calls are descriptive, not added pieces — "the
+slightly cropped Vintage black denim jacket" (halter top, try 1) describes a
+jacket the user owns, and "skirt-and-sweater vibe" (slip dress, try 4)
+describes the look, as it did before.
+
+What it did **not** do is move any of my five criteria — they were all MET
+before and are all MET after. The improvement shows up only in a measure that
+isn't one of the five, because none of the five checks that the thrifted item
+is in the outfit. That's a gap in my criteria, not something this change can
+fix.
+
+One caution on the numbers: the empty-wardrobe diagnostic also went from 1 of
+5 to 0 of 5, and I didn't touch its prompt. That one is run-to-run variation at
+temperature 0.9. A 26 → 0 drop concentrated in the prompt I changed is far
+bigger than that, but it's a reminder that one run of five tries can't tell a
+small difference from noise.
 
 
 
