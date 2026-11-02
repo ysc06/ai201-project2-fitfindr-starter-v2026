@@ -171,8 +171,10 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
     # system prompt: agent's control surface — when to do what, and what to do with nothing
     system = (
         "You are a thrift stylist. Suggest one or two outfits that pair the "
-        "thrifted item with pieces from the user's wardrobe. Use ONLY pieces "
-        "from the wardrobe list, and refer to each by its exact name as written. "
+        "thrifted item with pieces from the user's wardrobe. Every outfit must "
+        "include the thrifted item, named by its title. Apart from the thrifted "
+        "item, use ONLY pieces from the wardrobe list, and refer to each by its "
+        "exact name as written. "
         "Do not invent pieces the user doesn't own. Keep it brief."
     )
     # user prompt: user's request 
